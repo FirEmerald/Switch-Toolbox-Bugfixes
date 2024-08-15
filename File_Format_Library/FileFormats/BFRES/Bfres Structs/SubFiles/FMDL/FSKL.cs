@@ -10,6 +10,9 @@ using FirstPlugin;
 using Toolbox.Library.NodeWrappers;
 using Toolbox.Library.Forms;
 using Toolbox.Library.IO;
+using Newtonsoft.Json;
+using System.IO;
+using Newtonsoft.Json.Bson;
 
 namespace Bfres.Structs
 {
@@ -144,6 +147,11 @@ namespace Bfres.Structs
                     new ToolStripMenuItem("Replace Matching Bones (From Skeleton)", null, ReplaceMatchingFileAction, Keys.Control | Keys.S),
                     new ToolStripMenuItem("Replace Matching Bones (From Folder)", null, ReplaceMatchingFolderAction, Keys.Control | Keys.F),
                     new ToolStripSeparator(),
+                    new ToolStripMenuItem("Export Pose JSON", null, ExportPoseAction, Keys.Control | Keys.P),
+                    new ToolStripMenuItem("Import Matching Pose (From JSON)", null, ImportPoseAction, Keys.Control | Keys.J),
+                    new ToolStripMenuItem("Export Pose to Clipboard JSON", null, ExportPoseToClipboardAction, Keys.Control | Keys.C),
+                    new ToolStripMenuItem("Import Matching Pose From Clipboard JSON)", null, ImportPoseFromClipboardAction, Keys.Control | Keys.V),
+                    new ToolStripSeparator(),
                     new ToolStripMenuItem("Export Skeleton", null, ExportAction, Keys.Control | Keys.E),
                     new ToolStripMenuItem("Replace Skeleton", null, ReplaceAction, Keys.Control | Keys.R),
                 };
@@ -153,6 +161,10 @@ namespace Bfres.Structs
             protected void ExportAllAction(object sender, EventArgs args) { ExportAl(); }
             protected void ReplaceMatchingFileAction(object sender, EventArgs args) { ReplaceMatchingFile(); }
             protected void ReplaceMatchingFolderAction(object sender, EventArgs args) { ReplaceMatchingFolder(); }
+            protected void ExportPoseAction(object sender, EventArgs args) { ExportPose(); }
+            protected void ImportPoseAction(object sender, EventArgs args) { ImportPose(); }
+            protected void ExportPoseToClipboardAction(object sender, EventArgs args) { ExportPoseToClipboard(); }
+            protected void ImportPoseFromClipboardAction(object sender, EventArgs args) { ImportPoseFromClipboard(); }
 
             public void ExportAl()
             {
@@ -356,6 +368,105 @@ namespace Bfres.Structs
                         }
                     }
                 }
+            }
+
+            struct Transformation
+            {
+                public float[] position;
+                public float[] rotation;
+                public float[] scale;
+
+                public Transformation(BfresBone bone)
+                {
+                    position = new float[] { bone.Position.X, bone.Position.Y, bone.Position.Z };
+                    Vector3 rot = bone.EulerRotation;
+                    rotation = new float[] { rot.X, rot.Y, rot.Z };
+                    scale = new float[] { bone.Scale.X, bone.Scale.Y, bone.Scale.Z };
+                }
+
+                public void apply(BfresBone bone)
+                {
+                    Vector3 pos = new Vector3(position[0], position[1], position[2]);
+                    Vector3 rot = new Vector3(rotation[0], rotation[1], rotation[2]);
+                    Vector3 sca = new Vector3(scale[0], scale[1], scale[2]);
+                    bone.Position = pos;
+                    bone.EulerRotation = rot;
+                    bone.Scale = sca;
+                    bone.GenericToBfresBone();
+                }
+            }
+
+            Dictionary<string, Transformation> getPose()
+            {
+                Dictionary<string, Transformation> pose = new Dictionary<string, Transformation>();
+                foreach (BfresBone node in fskl.bones)
+                {
+                    pose[node.BoneName] = new Transformation(node);
+                }
+                return pose;
+            }
+
+            public void ExportPose()
+            {
+                if (Nodes.Count <= 0)
+                    return;
+                SaveFileDialog sfd = new SaveFileDialog();
+                sfd.Filter = sfd.DefaultExt = FileFilters.JSON;
+                sfd.FileName = "pose.json";
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    Dictionary<string, Transformation> pose = getPose();
+                    using (StreamWriter writer = File.CreateText(sfd.FileName))
+                    {
+                        JsonSerializer.CreateDefault(new JsonSerializerSettings()
+                        {
+                            Formatting = Formatting.Indented
+                        }).Serialize(writer, pose);
+                    }
+                }
+            }
+
+            public void ExportPoseToClipboard()
+            {
+                if (Nodes.Count <= 0)
+                    return;
+                Clipboard.SetText(JsonConvert.SerializeObject(getPose()));
+            }
+
+            void applyPose(Dictionary<string, Transformation> pose)
+            {
+                foreach (BfresBone node in fskl.bones)
+                {
+                    if (pose.ContainsKey(node.BoneName))
+                    {
+                        pose[node.BoneName].apply(node);
+                        this.fskl.reset();
+                    }
+                }
+            }
+
+            public void ImportPose()
+            {
+                if (Nodes.Count <= 0)
+                    return;
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = ofd.DefaultExt = FileFilters.JSON;
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    using (StreamReader reader = File.OpenText(ofd.FileName))
+                    {
+                        JsonReader jsonReader = new JsonTextReader(reader);
+                        Dictionary<string, Transformation> pose = JsonSerializer.CreateDefault().Deserialize<Dictionary<string, Transformation>>(jsonReader);
+                        applyPose(pose);
+                    }
+                }
+            }
+
+            public void ImportPoseFromClipboard()
+            {
+                if (Nodes.Count <= 0)
+                    return;
+                applyPose(JsonConvert.DeserializeObject<Dictionary<string, Transformation>>(Clipboard.GetText()));
             }
 
             public override void Replace(string FileName)

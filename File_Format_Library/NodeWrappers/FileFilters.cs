@@ -49,6 +49,8 @@ namespace FirstPlugin
         public static string NUTEXB = GetFilter(".dds",".png", ".bmp", ".tga", ".jpg", ".tiff", ".tif", ".gif");
         public static string XTX = GetFilter(".dds", ".astc", ".png", ".bmp", ".tga", ".jpg", ".tiff", ".tif", ".gif");
 
+        public static string JSON = GetFilter(".json");
+
         public static string GetFilter(Type type, object CheckAnimEffect = null, bool IsExporting = false)
         {
             if (type == typeof(TextureData)) return BNTX_TEX;
@@ -142,6 +144,7 @@ namespace FirstPlugin
                     case ".yaml": filters.Add(ext, "Yet Another Markup Language"); break;
                     case ".gif": filters.Add(ext, "Graphics Interchange Format"); break;
                     case ".cmdl": filters.Add(ext, "CTR Model"); break;
+                    case ".json": filters.Add(ext, "JSON File"); break;
                     default:
                         filters.Add(ext, ""); break;
                 }
