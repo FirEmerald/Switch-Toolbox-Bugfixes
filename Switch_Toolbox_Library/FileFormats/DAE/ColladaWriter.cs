@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.IO;
+using System.Windows;
+using Collada141;
 
 namespace Toolbox.Library.Collada
 {
@@ -637,10 +639,13 @@ namespace Toolbox.Library.Collada
 
                 var Weights = new List<object>();
                 var WeightIndices = new List<int>();
-                foreach (var v in BoneWeight.Item2)
+                for (int i = 0; i < BoneWeight.Item1.Count; i++)
                 {
-                    foreach (var w in v)
+                    int[] indices = BoneWeight.Item1[i];
+                    float[] weights = BoneWeight.Item2[i];
+                    for (int j = 0; j < indices.Length; j++)
                     {
+                        float w = weights[weights.Length == 1 ? 0 : j];
                         int index = Weights.IndexOf(w);
 
                         if (index == -1)
